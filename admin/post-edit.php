@@ -1,5 +1,7 @@
 <?php
-require 'head.php';
+require_once 'common.php';
+
+app_check_login();
 
 $post_id          = '';
 $post_state       = '';
@@ -16,7 +18,7 @@ if (isset($_POST['_IS_POST_BACK_'])) {
   $post_id          = $_POST['id'];
   $post_state       = $_POST['state'];
   $post_title       = trim($_POST['title']);
-  $post_content     = trim($_POST['content']);
+  $post_content     = htmlspecialchars(trim($_POST['content']));
   $post_tags        = explode(',', trim($_POST['tags']));
   $post_date        = date("Y-m-d");
   $post_time        = date("H:i:s");
@@ -66,7 +68,7 @@ if (isset($_POST['_IS_POST_BACK_'])) {
       $file_names = shorturl($post_title);
       
       foreach ($file_names as $file_name) {
-        $file_path = '../mc-files/posts/data/'.$file_name.'.dat';
+        $file_path = PATH_ROOT . '/data/posts/data/'.$file_name.'.dat';
         
         if (!is_file($file_path)) {
           $post_id = $file_name;
@@ -75,21 +77,21 @@ if (isset($_POST['_IS_POST_BACK_'])) {
       }
     }
     else {
-      $file_path = '../mc-files/posts/data/'.$post_id.'.dat';
+      $file_path = PATH_ROOT . '/data/posts/data/'.$post_id.'.dat';
   
       $data = unserialize(file_get_contents($file_path));
       
       $post_old_state = $data['state'];
       
       if ($post_old_state != $post_state) {
-        $index_file = '../mc-files/posts/index/'.$post_old_state.'.php';
+        $index_file = PATH_ROOT . '/data/posts/index/'.$post_old_state.'.php';
         
         require $index_file;
         
-        unset($mc_posts[$post_id]);
+        unset($app_posts[$post_id]);
         
         file_put_contents($index_file,
-          "<?php\n\$mc_posts=".var_export($mc_posts, true)."\n?>"
+          "<?php\n\$app_posts=".var_export($app_posts, true)."\n?>"
         );
       }
     }
@@ -104,16 +106,16 @@ if (isset($_POST['_IS_POST_BACK_'])) {
       'can_comment'  => $post_can_comment,
     );
     
-    $index_file = '../mc-files/posts/index/'.$post_state.'.php';
+    $index_file = PATH_ROOT . '/data/posts/index/'.$post_state.'.php';
     
     require $index_file;
     
-    $mc_posts[$post_id] = $data;
+    $app_posts[$post_id] = $data;
 
-    uasort($mc_posts, "post_sort");   
+    uasort($app_posts, "post_sort");   
  
     file_put_contents($index_file,
-      "<?php\n\$mc_posts=".var_export($mc_posts, true)."\n?>"
+      "<?php\n\$app_posts=".var_export($app_posts, true)."\n?>"
     );
     
     $data['content'] = $post_content;
@@ -123,7 +125,7 @@ if (isset($_POST['_IS_POST_BACK_'])) {
     $succeed = true;
   }
 } else if (isset($_GET['id'])) {
-  $file_path = '../mc-files/posts/data/'.$_GET['id'].'.dat';
+  $file_path = PATH_ROOT . '/data/posts/data/'.$_GET['id'].'.dat';
   
   $data = unserialize(file_get_contents($file_path));
   
@@ -137,41 +139,42 @@ if (isset($_POST['_IS_POST_BACK_'])) {
   $post_can_comment = isset($data['can_comment']) ? $data['can_comment'] : '1';
 }
 ?>
+<?php require 'head.php'; ?>
 <script type="text/javascript">
-function empty_textbox_focus(target){
-  if (target.temp_value != undefined && target.value != target.temp_value)
-    return;
-  
-  target.temp_value = target.value;
-  target.value='';
-  target.style.color='#000';
-}
-
-function empty_textbox_blur(target) {
-  if (target.value == '') {
-    target.style.color='#888';
-    target.value = target.temp_value;
+  function empty_textbox_focus(target){
+    if (target.temp_value != undefined && target.value != target.temp_value)
+      return;
+    
+    target.temp_value = target.value;
+    target.value='';
+    target.style.color='#000';
   }
-}
+
+  function empty_textbox_blur(target) {
+    if (target.value == '') {
+      target.style.color='#888';
+      target.value = target.temp_value;
+    }
+  }
 </script>
 <form action="<?php echo htmlentities($_SERVER['REQUEST_URI']); ?>" method="post">
   <input type="hidden" name="_IS_POST_BACK_" value=""/>
   <?php if ($succeed) { ?>
   <?php if ($post_state == 'publish') { ?>
-  <div class="updated">文章已发布。 <a href="<?php echo $mc_config['site_link']; ?>/?post/<?php echo $post_id; ?>" target="_blank">查看文章</a></div>
+  <div class="updated">文章已发布。 <a href="<?php echo app_get_url('post', $post_id); ?>" class="link" target="_blank">查看文章</a></div>
   <?php } else { ?>
   <div class="updated">文章已保存到“草稿箱”。 <a href="post.php?state=draft">打开草稿箱</a></div>
   <?php } ?>
   <?php } ?>
   <div class="admin_page_name">
-  <?php if ($post_id == '') echo "撰写文章"; else echo "编辑文章"; ?>
+    <?php if ($post_id == '') echo "撰写文章"; else echo "编辑文章"; ?><a class="link_button" href="post.php">所有文章</a>
   </div>
   <div style="margin-bottom:20px;">
     <input name="title" type="text" class="edit_textbox" placeholder="在此输入标题" value="<?php echo htmlspecialchars($post_title); ?>"/>
   </div>
   <div style="margin-bottom:20px;">
     <?php require 'editor.php'; ?>
-    <?php editor($post_content); ?>
+    <?php editor(htmlspecialchars_decode($post_content)); ?>
   </div>
   <div style="margin-bottom:20px;">
     <input name="tags" type="text" class="edit_textbox" placeholder="在此输入标签，多个标签之间用逗号分隔" value="<?php echo htmlspecialchars(implode(',', $post_tags)); ?>"/>
